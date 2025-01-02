@@ -1,5 +1,7 @@
+import time
+import threading
 import tkinter as tk
-from PIL import Image, ImageTk #pip install Pillow (Is required)
+from PIL import Image, ImageTk
 import random
 import json
 import os
@@ -162,6 +164,10 @@ class WhatsAppWebInterface:
         # Handle application close
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
+        # Start the timer thread
+        self.timer_thread = threading.Thread(target=self.timer)
+        self.timer_thread.start()
+
     def toggle_search_bar(self):
         """Toggle the visibility of the search bar."""
         if self.search_bar_visible:
@@ -211,17 +217,13 @@ class WhatsAppWebInterface:
                 widget.pack_forget()
 
     def load_chat(self, contact):
-        """Load chat for the selected contact."""
+        """Load chat for the selected contact.""" 
         self.current_contact = contact
-
-        # Update header with contact name
         self.contact_header.config(text=f"Chat with {contact}")
-
-        # Clear the chat area
+        # Clear chat area
         for widget in self.chat_area_inner_frame.winfo_children():
             widget.destroy()
 
-        # Load chat messages for the selected contact from chat history
         if contact in self.chat_history:
             for message in self.chat_history[contact]:
                 if isinstance(message, tuple) and len(message) == 2:
@@ -231,60 +233,44 @@ class WhatsAppWebInterface:
                     else:
                         self.create_message_widget(message_text, "left")
         else:
-            # If no messages exist for the contact, display a placeholder
             self.create_message_widget("No messages yet", "left")
 
     def create_message_widget(self, message, position):
         """Create a message widget for displaying a message."""
-        # Fixing the width of the chat to subtract the contact list
         window_width = self.root.winfo_width()
         contact_panel_width = self.contacts_frame.winfo_width()
         chat_width = window_width - contact_panel_width - 10  # Padding for margin
 
-        # Decide the background color based on the sender (user or bot)
-        bg_color = "#DCF8C6" if position == "right" else "#FFFFFF"  # User = right, Bot = left
-        anchor = 'e' if position == "right" else 'w'  # User = right, Bot = left
+        bg_color = "#DCF8C6" if position == "right" else "#FFFFFF"
+        anchor = 'e' if position == "right" else 'w'
 
-        # Create a Frame for the message
         message_frame = tk.Frame(self.chat_area_inner_frame, bg=bg_color, padx=10, pady=5, width=chat_width)
         message_frame.pack(fill=tk.X, padx=10, pady=2, anchor=anchor)
 
-        # Create a Label for the message
-        message_label = tk.Label(
-            message_frame, text=message, bg=bg_color, wraplength=chat_width, justify='left', font=("Helvetica", 12)
-        )
+        message_label = tk.Label(message_frame, text=message, bg=bg_color, wraplength=chat_width, justify='left', font=("Helvetica", 12))
         message_label.pack(fill=tk.BOTH, expand=True)
 
-        # Scroll to the bottom after adding the message
+        # Scroll to bottom
         self.chat_area_canvas.yview_moveto(1)
 
     def send_message(self, event=None):
-        """Handle sending a message when the send button is clicked or Enter is pressed.""" 
-        mymessage = self.message_entry.get()
-        self.send_user_message(mymessage)
+        """Handle sending a message."""
+        message = self.message_entry.get()
+        self.send_user_message(message)
 
     def send_user_message(self, message):
-        """Send a user message and display it on the right.""" 
+        """Send user message."""
         if message and self.current_contact:
-            # Display the message on the right (user side)
             self.create_message_widget(f"You: {message}", "right")
-
-            # Store the message in memory for the session
             if self.current_contact not in self.chat_history:
                 self.chat_history[self.current_contact] = []
             self.chat_history[self.current_contact].append((message, "you"))
-
-            # Save the updated chat history to a JSON file
             self.save_chat_history()
-
-            # Clear the message entry box
             self.message_entry.delete(0, tk.END)
-
-            # Send a random bot message
             self.send_bot_message()
 
     def send_bot_message(self):
-        """Generate and send a random bot message.""" 
+        """Send a random bot message."""
         bot_messages = [
             "Hello! How can I help you today?",
             "I'm here to assist you!",
@@ -295,38 +281,35 @@ class WhatsAppWebInterface:
         if self.current_contact:
             bot_message = random.choice(bot_messages)
             self.create_message_widget(f"Bot: {bot_message}", "left")
-
-            # Store the bot message in memory for the session
             if self.current_contact not in self.chat_history:
                 self.chat_history[self.current_contact] = []
             self.chat_history[self.current_contact].append((bot_message, "bot"))
-
-            # Save the updated chat history to a JSON file
             self.save_chat_history()
 
     def save_chat_history(self):
-        """Save the current chat history to a JSON file."""
+        """Save chat history to file."""
         with open("chat_history.json", "w") as f:
             json.dump(self.chat_history, f)
 
     def load_chat_history(self):
-        """Load (and clean) the chat history from a JSON file."""
+        """Load chat history."""
         # Clean the file by resetting it
         with open("chat_history.json", "w") as f:
             json.dump({}, f)  # Empty the file content
-
-        self.chat_history = {}  # Reset in-memory chat history
-
-        print("Chat history file has been cleaned.")
-
+        self.chat_history = {}
 
     def on_closing(self):
-        """Clear chat history and save to JSON before closing."""
+        """Handle closing."""
         self.chat_history.clear()  # Reset in-memory history
         with open("chat_history.json", "w") as f:
             json.dump({}, f)  # Empty the file content
         self.root.destroy()
 
+    def timer(self):
+        """Timer function."""
+        time.sleep(15)
+        self.send_bot_message()
+        self.timer_thread = threading.Thread(target=self.timer())    
 
 if __name__ == "__main__":
     root = tk.Tk()
