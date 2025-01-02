@@ -1,5 +1,5 @@
 import tkinter as tk
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk #pip install Pillow (Is required)
 import random
 import json
 import os

@@ -1,0 +1,1 @@
+Must install Pillow using: pip install Pillow
