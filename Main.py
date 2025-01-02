@@ -1,7 +1,8 @@
 import tkinter as tk
-from tkinter import scrolledtext, END
 from PIL import Image, ImageTk
-
+import random
+import json
+import os
 
 class WhatsAppWebInterface:
     def __init__(self, root):
@@ -10,9 +11,12 @@ class WhatsAppWebInterface:
         self.root.geometry("800x600")
         self.root.configure(bg="#ece5dd")
 
-        # Chat history stored in memory (not persisted)
+        # Chat history stored in memory and saved to JSON file
         self.chat_history = {}
         self.current_contact = None
+
+        # Check if the chat history JSON file exists, and load it
+        self.load_chat_history()
 
         # Left-side contacts panel
         self.contacts_frame = tk.Frame(self.root, width=250, bg="#075E54", bd=0)
@@ -90,13 +94,22 @@ class WhatsAppWebInterface:
         )
         self.contact_header.pack(fill=tk.X)
 
-        # Chat area
-        self.chat_area = scrolledtext.ScrolledText(
-            self.chat_frame, state='disabled', wrap='word',
-            font=("Helvetica", 12), bg="#ffffff", bd=0
-        )
-        self.chat_area.pack(pady=(10, 0), padx=10, fill=tk.BOTH, expand=True)
-       
+        # Chat area (ScrollFrame style)
+        self.chat_area_frame = tk.Frame(self.chat_frame, bg="#ece5dd")
+        self.chat_area_frame.pack(pady=(10, 0), padx=10, fill=tk.BOTH, expand=True)
+
+        self.chat_area_canvas = tk.Canvas(self.chat_area_frame, bg="#ffffff")
+        self.chat_area_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.chat_area_scrollbar = tk.Scrollbar(self.chat_area_frame, orient="vertical", command=self.chat_area_canvas.yview)
+        self.chat_area_scrollbar.pack(side=tk.RIGHT, fill="y")
+
+        self.chat_area_canvas.configure(yscrollcommand=self.chat_area_scrollbar.set)
+        self.chat_area_canvas.bind("<Configure>", lambda e: self.chat_area_canvas.configure(scrollregion=self.chat_area_canvas.bbox("all")))
+
+        self.chat_area_inner_frame = tk.Frame(self.chat_area_canvas, bg="#ffffff")
+        self.chat_area_canvas.create_window((0, 0), window=self.chat_area_inner_frame, anchor="nw")
+
         # Message entry frame
         self.message_frame = tk.Frame(self.chat_frame, bg="#f0f0f0", pady=5)
         self.message_frame.pack(fill=tk.X)
@@ -171,40 +184,127 @@ class WhatsAppWebInterface:
     def load_chat(self, contact):
         """Load chat for the selected contact."""
         self.current_contact = contact
-        self.chat_area.config(state='normal')
-        self.chat_area.delete(1.0, END)  # Clear chat area
 
         # Update header with contact name
         self.contact_header.config(text=f"Chat with {contact}")
 
-        # Load chat messages for the selected contact
+        # Clear the chat area
+        for widget in self.chat_area_inner_frame.winfo_children():
+            widget.destroy()
+
+        # Load chat messages for the selected contact from chat history
         if contact in self.chat_history:
             for message in self.chat_history[contact]:
-                self.chat_area.insert(END, message + "\n")
-        self.chat_area.config(state='disabled')
-    
-    def send_message(self):
-        """Send a message and display it in the chat area."""
-        message = self.message_entry.get()
+                if isinstance(message, tuple) and len(message) == 2:
+                    message_text, sender = message
+                    if sender == "you":
+                        self.create_message_widget(message_text, "right")
+                    else:
+                        self.create_message_widget(message_text, "left")
+        else:
+            # If no messages exist for the contact, display a placeholder
+            self.create_message_widget("No messages yet", "left")
+
+    def create_message_widget(self, message, position):
+        """Create a message widget for displaying a message."""
+        # Fixing the width of the chat to subtract the contact list
+        window_width = self.root.winfo_width()
+        contact_panel_width = self.contacts_frame.winfo_width()
+        chat_width = window_width - contact_panel_width - 10  # Padding for margin
+
+        # Decide the background color based on the sender (user or bot)
+        bg_color = "#DCF8C6" if position == "right" else "#FFFFFF"  # User = right, Bot = left
+        anchor = 'e' if position == "right" else 'w'  # User = right, Bot = left
+
+        # Create a Frame for the message
+        message_frame = tk.Frame(self.chat_area_inner_frame, bg=bg_color, padx=10, pady=5, width=chat_width)
+        message_frame.pack(fill=tk.X, padx=10, pady=2, anchor=anchor)
+
+        # Create a Label for the message
+        message_label = tk.Label(
+            message_frame, text=message, bg=bg_color, wraplength=chat_width, justify='left', font=("Helvetica", 12)
+        )
+        message_label.pack(fill=tk.BOTH, expand=True)
+
+        # Scroll to the bottom after adding the message
+        self.chat_area_canvas.yview_moveto(1)
+
+    def send_message(self, event=None):
+        """Handle sending a message when the send button is clicked or Enter is pressed."""
+        mymessage = self.message_entry.get()
+        self.send_user_message(mymessage)
+
+    def send_user_message(self, message):
+        """Send a user message and display it on the right."""
         if message and self.current_contact:
-            self.chat_area.config(state='normal')
-            self.chat_area.insert(END, f"You: {message}\n")
-            self.chat_area.config(state='disabled')
+            # Display the message on the right (user side)
+            self.create_message_widget(f"You: {message}", "right")
 
             # Store the message in memory for the session
             if self.current_contact not in self.chat_history:
                 self.chat_history[self.current_contact] = []
-            self.chat_history[self.current_contact].append(f"You: {message}")
+            self.chat_history[self.current_contact].append((message, "you"))
+
+            # Save the updated chat history to a JSON file
+            self.save_chat_history()
 
             # Clear the message entry box
             self.message_entry.delete(0, tk.END)
 
+            # Send a random bot message
+            self.send_bot_message()
+
+    def send_bot_message(self):
+        """Generate and send a random bot message."""
+        bot_messages = [
+            "Hello! How can I help you today?",
+            "I'm here to assist you!",
+            "What would you like to know?",
+            "Feel free to ask me anything!",
+            "How's your day going?"
+        ]
+        if self.current_contact:
+            bot_message = random.choice(bot_messages)
+            self.create_message_widget(f"Bot: {bot_message}", "left")
+
+            # Store the bot message in memory for the session
+            if self.current_contact not in self.chat_history:
+                self.chat_history[self.current_contact] = []
+            self.chat_history[self.current_contact].append((bot_message, "bot"))
+
+            # Save the updated chat history to a JSON file
+            self.save_chat_history()
+
+    def save_chat_history(self):
+        """Save the current chat history to a JSON file."""
+        with open("chat_history.json", "w") as f:
+            json.dump(self.chat_history, f)
+
+    def load_chat_history(self):
+        """Load (and clean) the chat history from a JSON file."""
+        # Clean the file by resetting it
+        with open("chat_history.json", "w") as f:
+            json.dump({}, f)  # Empty the file content
+
+        self.chat_history = {}  # Reset in-memory chat history
+
+        print("Chat history file has been cleaned.")
+
+
     def on_closing(self):
-        """Clear chat history (session only) and close the application."""
-        self.chat_history.clear()
+        """Clear chat history and save to JSON before closing."""
+        self.chat_history.clear()  # Reset in-memory history
+        with open("chat_history.json", "w") as f:
+            json.dump({}, f)  # Empty the file content
         self.root.destroy()
+
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = WhatsAppWebInterface(root)
     root.mainloop()
+    
+    
+    
+
+    
