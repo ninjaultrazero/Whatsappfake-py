@@ -31,6 +31,32 @@ class WhatsAppWebInterface:
         )
         self.contacts_header.pack(fill=tk.X)
 
+        # Search bar toggle button
+        self.search_bar_visible = False
+        self.toggle_search_button = tk.Button(
+            self.contacts_frame,
+            text="Search",
+            command=self.toggle_search_bar,
+            bg="#128C7E",
+            fg="#ffffff",
+            font=("Helvetica", 12, "bold"),
+            bd=0,
+            padx=10,
+            pady=5
+        )
+        self.toggle_search_button.pack(fill=tk.X, padx=10, pady=5)
+
+        # Search bar (hidden initially)
+        self.search_var = tk.StringVar()
+        self.search_var.trace("w", self.update_contacts_list)
+        self.search_entry = tk.Entry(
+            self.contacts_frame, textvariable=self.search_var, font=("Helvetica", 12),
+            bd=0, bg="#ffffff", highlightbackground="#e0e0e0", highlightthickness=1,
+            relief=tk.FLAT
+        )
+        self.search_entry.pack(fill=tk.X, padx=10, pady=5)
+        self.search_entry.pack_forget()
+
         # Contacts list container
         self.contacts_list_frame = tk.Frame(self.contacts_frame, bg="#ffffff")
         self.contacts_list_frame.pack(fill=tk.BOTH, expand=True)
@@ -43,8 +69,9 @@ class WhatsAppWebInterface:
             "David": "David.png",
             "Eve": "Eve.png",
         }
-        for name, img_path in self.contacts.items():
-            self.create_contact_widget(name, img_path)
+
+        self.contact_widgets = []  # Store references to contact widgets
+        self.populate_contacts()
 
         # Right-side chat area
         self.chat_frame = tk.Frame(self.root, bg="#ece5dd", bd=0)
@@ -69,7 +96,7 @@ class WhatsAppWebInterface:
             font=("Helvetica", 12), bg="#ffffff", bd=0
         )
         self.chat_area.pack(pady=(10, 0), padx=10, fill=tk.BOTH, expand=True)
-
+       
         # Message entry frame
         self.message_frame = tk.Frame(self.chat_frame, bg="#f0f0f0", pady=5)
         self.message_frame.pack(fill=tk.X)
@@ -92,6 +119,14 @@ class WhatsAppWebInterface:
 
         # Handle application close
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+    def toggle_search_bar(self):
+        """Toggle the visibility of the search bar."""
+        if self.search_bar_visible:
+            self.search_entry.pack_forget()
+        else:
+            self.search_entry.pack(fill=tk.X, padx=10, pady=5)
+        self.search_bar_visible = not self.search_bar_visible
 
     def create_contact_widget(self, name, img_path):
         """Create a contact widget with an image and bind events."""
@@ -117,6 +152,22 @@ class WhatsAppWebInterface:
         contact_img_label.bind("<Button-1>", lambda e: self.load_chat(name))
         contact_name_label.bind("<Button-1>", lambda e: self.load_chat(name))
 
+        self.contact_widgets.append((name, contact_frame))
+
+    def populate_contacts(self):
+        """Populate the contacts list."""
+        for name, img_path in self.contacts.items():
+            self.create_contact_widget(name, img_path)
+
+    def update_contacts_list(self, *args):
+        """Update the displayed contacts based on the search query."""
+        search_query = self.search_var.get().lower()
+        for name, widget in self.contact_widgets:
+            if search_query in name.lower():
+                widget.pack(fill=tk.X, padx=5, pady=2)
+            else:
+                widget.pack_forget()
+
     def load_chat(self, contact):
         """Load chat for the selected contact."""
         self.current_contact = contact
@@ -131,7 +182,7 @@ class WhatsAppWebInterface:
             for message in self.chat_history[contact]:
                 self.chat_area.insert(END, message + "\n")
         self.chat_area.config(state='disabled')
-
+    
     def send_message(self):
         """Send a message and display it in the chat area."""
         message = self.message_entry.get()
@@ -152,7 +203,6 @@ class WhatsAppWebInterface:
         """Clear chat history (session only) and close the application."""
         self.chat_history.clear()
         self.root.destroy()
-
 
 if __name__ == "__main__":
     root = tk.Tk()
