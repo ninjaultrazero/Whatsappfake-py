@@ -61,17 +61,46 @@ class WhatsAppWebInterface:
         self.search_entry.pack(fill=tk.X, padx=10, pady=5)
         self.search_entry.pack_forget()
 
-        # Contacts list container
-        self.contacts_list_frame = tk.Frame(self.contacts_frame, bg="#ffffff")
-        self.contacts_list_frame.pack(fill=tk.BOTH, expand=True)
+        # Contacts list container with a canvas for scrolling
+        self.contacts_canvas = tk.Canvas(self.contacts_frame, bg="#ffffff")
+        self.contacts_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Scrollbar for contacts
+        self.contacts_scrollbar = tk.Scrollbar(self.contacts_frame, orient="vertical", command=self.contacts_canvas.yview)
+        self.contacts_scrollbar.pack(side=tk.RIGHT, fill="y")
+
+        self.contacts_canvas.configure(yscrollcommand=self.contacts_scrollbar.set)
+        self.contacts_canvas.bind("<Configure>", lambda e: self.contacts_canvas.configure(scrollregion=self.contacts_canvas.bbox("all")))
+
+        self.contacts_list_frame = tk.Frame(self.contacts_canvas, bg="#ffffff")
+        self.contacts_canvas.create_window((0, 0), window=self.contacts_list_frame, anchor="nw")
 
         # Dummy contacts with images
         self.contacts = {
             "Alice": "Alice.png",
-            "Bob": "Bob.png",
-            "Charlie": "Charlie.png",
-            "David": "David.png",
-            "Eve": "Eve.png",
+            "Bob": "Alice.png",
+            "Charlie": "Alice.png",
+            "David": "Alice.png",
+            "Eve": "Alice.png",
+            "Frank": "Alice.png",
+            "Grace": "Alice.png",
+            "Hannah": "Alice.png",
+            "Ivy": "Alice.png",
+            "Jack": "Alice.png",
+            "Katherine": "Alice.png",
+            "Leo": "Alice.png",
+            "Mia": "Alice.png",
+            "Nina": "Alice.png",
+            "Oscar": "Alice.png",
+            "Paul": "Alice.png",
+            "Quincy": "Alice.png",
+            "Riley": "Alice.png",
+            "Sophie": "Alice.png",
+            "Tom": "Alice.png",
+            "Bob Marlie": "Bob.png",
+            "Charlie stekka": "Charlie.png",
+            "David Silva": "David.png",
+            "Eve ning": "Eve.png",
         }
 
         self.contact_widgets = []  # Store references to contact widgets
@@ -230,12 +259,12 @@ class WhatsAppWebInterface:
         self.chat_area_canvas.yview_moveto(1)
 
     def send_message(self, event=None):
-        """Handle sending a message when the send button is clicked or Enter is pressed."""
+        """Handle sending a message when the send button is clicked or Enter is pressed.""" 
         mymessage = self.message_entry.get()
         self.send_user_message(mymessage)
 
     def send_user_message(self, message):
-        """Send a user message and display it on the right."""
+        """Send a user message and display it on the right.""" 
         if message and self.current_contact:
             # Display the message on the right (user side)
             self.create_message_widget(f"You: {message}", "right")
@@ -255,7 +284,7 @@ class WhatsAppWebInterface:
             self.send_bot_message()
 
     def send_bot_message(self):
-        """Generate and send a random bot message."""
+        """Generate and send a random bot message.""" 
         bot_messages = [
             "Hello! How can I help you today?",
             "I'm here to assist you!",
@@ -303,8 +332,3 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = WhatsAppWebInterface(root)
     root.mainloop()
-    
-    
-    
-
-    
