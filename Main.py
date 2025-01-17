@@ -194,7 +194,7 @@ class WhatsAppWebInterface:
 
     def bot_reply(self):
         if self.current_contact:
-            reply = random.choice(["Hello!", "How can I help?", "Good day!"])
+            reply = random.choice(["Ciao,come va?","Buongiorno,tutto bene?","Ehi,che si dice?","Salve,come stai?","Ciao,che combini?","Ehilà,tutto ok?","Buonasera,come procede?","Ciao,novità?","Salve,tutto a posto?","Hey,come butta?"])
             self.display_message(reply, "bot")
             self.chat_history[self.current_contact].append((reply, "bot"))
             self.save_chat_history()
